@@ -1,3 +1,11 @@
+/**
+ *  Copyright (c)  2011 coltware@gmail.com
+ *  http://www.coltware.com 
+ *
+ *  License: LGPL v3 ( http://www.gnu.org/licenses/lgpl-3.0-standalone.html )
+ *
+ * @author coltware@gmail.com
+ */
 package com.coltware.airxlib.db.collection
 {
 	import com.coltware.airxlib.db.QueryParameter;

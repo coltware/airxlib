@@ -1,5 +1,5 @@
 /**
- *  Copyright (c)  2009 coltware@gmail.com
+ *  Copyright (c)  2011 coltware@gmail.com
  *  http://www.coltware.com 
  *
  *  License: LGPL v3 ( http://www.gnu.org/licenses/lgpl-3.0-standalone.html )
