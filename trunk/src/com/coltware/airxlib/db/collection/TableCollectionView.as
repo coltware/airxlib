@@ -47,7 +47,7 @@ package com.coltware.airxlib.db.collection
 				this._tableList.sqlConnection = t.sqlConnection;
 				this._tableList.itemClass = t.itemClass;
 				log.debug("table object add trigger..." + t);
-				t.addEventListener(TableEvent.CHANGE_TOTAL, hook_table_chage_total);
+				t.addEventListener(TableEvent.TABLE_CHANGE, hook_table_chage_total);
 			}
 			else{
 				this._tableList.tableName = tableNameOrTable as String;
@@ -60,7 +60,9 @@ package com.coltware.airxlib.db.collection
 		}
 		
 		public function start():void{
-			this._tableList.start();
+			if(!this._tableList.isInitilizing()){
+				this._tableList.start();
+			}
 		}
 		
 		/**
