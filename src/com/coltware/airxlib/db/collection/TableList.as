@@ -59,13 +59,15 @@ package com.coltware.airxlib.db.collection
 		
 		private var _queryParameter:QueryParameter;
 		
-		
-		
 		private var _cache_idx:Array;
 		private var _cache_dict:Dictionary;
 		private var _cacheSize:int = 50;
 		
 		private var _uid:String;
+		
+		private var _lastSql:String = "";
+		
+		private var _initilizing:Boolean = false;
 		
 		/**
 		 *  item object properties
@@ -93,7 +95,12 @@ package com.coltware.airxlib.db.collection
 		
 		public function start():void{
 			//  TOTAL件数を計算
+			this._initilizing = true;
 			this._getInternalLength();
+		}
+		
+		public function isInitilizing():Boolean{
+			return this._initilizing;
 		}
 		
 		public function set sqlConnection(conn:SQLConnection):void{
@@ -195,6 +202,7 @@ package com.coltware.airxlib.db.collection
 			var where:String = this._get_where(stmt);
 			
 			stmt.text = "SELECT * FROM " + this._tableName + where + " " + order + " LIMIT 1 OFFSET " + index;
+			this._lastSql = stmt.text;
 			
 			var proxy:ObjectProxy;
 			var uid:String = this._index_uid_prefix + index;
@@ -247,7 +255,7 @@ package com.coltware.airxlib.db.collection
 				stmt.removeEventListener(SQLEvent.RESULT,resultFunc);
 			}
 			stmt.addEventListener(SQLEvent.RESULT,resultFunc);
-			log.debug("sql:" + stmt.text);
+			//log.debug("sql:" + stmt.text);
 			stmt.execute();
 			return proxy;
 		}
@@ -279,7 +287,7 @@ package com.coltware.airxlib.db.collection
 		
 		private function _get_where(stmt:SQLStatement):String{
 			var where_array:Array = new Array();
-				if(_queryParameter){
+			if(_queryParameter){
 				if(_queryParameter.systemWhere){
 					where_array.push("(" + _queryParameter.systemWhere + ")");
 				}
@@ -288,13 +296,13 @@ package com.coltware.airxlib.db.collection
 				}
 				
 				if(_queryParameter.args){
-					if(_queryParameter as Array){
+					if(_queryParameter.args is Array){
 						for(var i:int=0; i<_queryParameter.args.length; i++){
-							_lengthStmt.parameters[i] = _queryParameter.args[i];
+							stmt.parameters[i] = _queryParameter.args[i];
 						}
 					}
 					else{
-						_lengthStmt.parameters[0] = _queryParameter.args;
+						stmt.parameters[0] = _queryParameter.args;
 					}
 				}
 			}
@@ -328,17 +336,18 @@ package com.coltware.airxlib.db.collection
 			
 			
 			if(_queryParameter){
-				
 				where = this._get_where(_lengthStmt);
 				_lengthStmt.text = sql + where;
 			}
 			else{
 				_lengthStmt.text = sql;
 			}
-			log.debug("get length:" + _lengthStmt.text);
 			
+			log.debug("_getInternalLength() : get length:" + _lengthStmt.text);
+			_lastSql = _lengthStmt.text;
 			_lengthStmt.execute();
 		}
+		
 		private function _handler_get_total(evt:SQLEvent):void{
 			var result:SQLResult = _lengthStmt.getResult();
 			if(result && result.data){
@@ -349,19 +358,20 @@ package com.coltware.airxlib.db.collection
 					dispatchEvent(flexEvent);
 				}
 				
-				
 				this._length = result.data[0]["count"];
 				
-				log.debug("length is [" + this._length + "]");
+				log.debug("_handler_get_total ... length is [" + this._length + "]");
 				
 				var collectEvent:CollectionEvent = new CollectionEvent(CollectionEvent.COLLECTION_CHANGE);
 				collectEvent.kind = CollectionEventKind.RESET;
 				dispatchEvent(collectEvent);
+				
+				this._initilizing = false;
 			}
 		}
 		
 		private function _handler_query_error(event:SQLErrorEvent):void{
-			log.warn("SQL Error:" + event.text);
+			log.warn("SQL Error:" + event.text + "[" + this._lastSql  + "]");
 		}
 		
 	}

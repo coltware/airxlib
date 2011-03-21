@@ -29,7 +29,7 @@ package com.coltware.airxlib.db
 	
 	public class Table extends EventDispatcher{
 		
-		private static const $__debug__:Boolean = false;
+		private static const $__debug__:Boolean = true;
 		private static const _log:ILogger = Log.getLogger("com.coltware.airxlib.db.Table");
 		public static var debug:Boolean = false;
 		
@@ -37,7 +37,7 @@ package com.coltware.airxlib.db
 		protected var tableName:String;
 		private var fields:Object;
 		private var _xml:XML;
-		private var _pkey:String;
+		private var _pkey:Array;
 		protected var _defaultItemClass:Class = null;
 		
 		public var lastSql:String = "";
@@ -77,6 +77,7 @@ package com.coltware.airxlib.db
 		
 		public function Table() {
 			this.ignoreUpdateField = new ArrayCollection();
+			this._pkey = new Array();
 			
 		}
 		public function set itemClass(clz:Class):void{
@@ -124,12 +125,12 @@ package com.coltware.airxlib.db
 				var type:String = child.@type;
 				if(child.@auto_increment == "true"){
 					fields[name] = FIELD_AUTO;
-					_pkey = name;
+					_pkey.push(name);
 					_log.debug("pkey is " + _pkey);
 				}
 				else{
 					if(child.@primary == "true"){
-						_pkey = name;
+						_pkey.push(name);
 						_log.debug("pkey is " + _pkey);
 					}
 					fields[name] = getFieldType(type);
@@ -150,7 +151,7 @@ package com.coltware.airxlib.db
 		/**
 		 *  登録処理
 		 */ 
-		public function insertItem(raw:Object,func:Function = null):void{
+		public function insertItem(raw:Object,func:Function = null,errorFunc:Function = null):void{
 			
 			var stmt:SQLStatement = new SQLStatement();
 			stmt.sqlConnection = _conn;
@@ -213,31 +214,71 @@ package com.coltware.airxlib.db
 				fireInsertEvent(result);
 				stmt.removeEventListener(SQLEvent.RESULT,insertFunc);
 			};
+			
+			var insertErrorFunc:Function = function(errEvt:SQLErrorEvent):void{
+				if(errorFunc != null){
+					errorFunc(errEvt);
+				}
+				stmt.removeEventListener(SQLErrorEvent.ERROR,insertErrorFunc);
+			}
+			stmt.addEventListener(SQLErrorEvent.ERROR,errorFunc);
 			stmt.addEventListener(SQLEvent.RESULT,insertFunc);
 			stmt.execute();
 		}
 		
 		/**
-		 *  INSERT EVENT
+		 *  UPDATE ITEM
 		 */
-		protected function fireInsertEvent(result:SQLResult):void{
+		public function updateItem(item:Object,func:Function = null,setNull:Boolean = false):void{
+			var stmt:SQLStatement = new SQLStatement();
+			stmt.sqlConnection = _conn;
 			
-			var ne:TableEvent = new TableEvent(TableEvent.INSERT);
-			ne.result = result;
-			ne.tableObject = this;
-			dispatchEvent(ne);
+			var wheres:Array = new Array();
+			var set:Array = new Array();
 			
-			var ch:TableEvent = new TableEvent(TableEvent.CHANGE_TOTAL);
-			ch.result = result;
-			ch.tableObject = this;
-			dispatchEvent(ch);
+			for(var fieldName:String in fields){
+				if(_pkey.indexOf(fieldName) > -1){
+					wheres.push(fieldName + "= :" + fieldName);
+					stmt.parameters[":" + fieldName] = item[fieldName];
+				}
+				else if(_field_created_at && fieldName == _field_created_at){
+					// skip ...
+				}
+				else if(_field_updated_at && fieldName == _field_updated_at){
+					set.push(fieldName + " = :" + fieldName);
+					stmt.parameters[":" + fieldName] = new Date();
+				}
+				else{
+					if(item.hasOwnProperty(fieldName)){
+						if(item[fieldName]){
+							set.push(fieldName + " =:" + fieldName);
+							stmt.parameters[":" + fieldName] = item[fieldName];
+						}
+						else{
+							if(setNull){
+								set.push(fieldName + " = NULL ");
+							}
+						}
+					}
+				}
+			}
 			
-			var evt:TableEvent = new TableEvent(TableEvent.TABLE_CHANGE);
-			evt.result = result;
-			evt.tableObject = this;
-			dispatchEvent(evt);
+			var sql:String = "UPDATE " + this.tableName + " SET \n" + set.join(",\n") + " WHERE " + wheres.join(" AND ");
+			_log.debug("update sql: " + sql);
+			lastSql = sql;
 			
-			_log.debug("fireInsertEvent : dispatchInsertEvent - " + result.lastInsertRowID);
+			stmt.text = sql;
+			
+			var updateFunc:Function = function():void{
+				var result:SQLResult = stmt.getResult();
+				if(func != null){
+					func(result);
+				}
+				fireUpdateEvent(result);
+				stmt.removeEventListener(SQLEvent.RESULT,updateFunc);
+			};
+			stmt.addEventListener(SQLEvent.RESULT,updateFunc);
+			stmt.execute();
 		}
 		
 		/**
@@ -259,13 +300,12 @@ package com.coltware.airxlib.db
 			var flds:Array = new Array();
 			var data:Array = new Array();
 			for(var fld:String in fields){
-				
-				if(fld == _pkey){
+				if(_pkey.indexOf(fld) > -1){
 					if(raw[fld] != null){
 						stmt.parameters[":" + fld] = raw[fld];
 						_log.debug("update [" + fld + "] => " + raw[fld]);
 					}
-				} 
+				}
 				else if(fld == _field_created_at){
 					// -- Do Nothing
 				}
@@ -301,9 +341,30 @@ package com.coltware.airxlib.db
 			return stmt;
 		}
 		
-		protected function fireUpdateEvent(e:SQLEvent):void{
-			var stmt:SQLStatement  = e.target as SQLStatement;
-			var result:SQLResult = stmt.getResult();
+		/**
+		 *  INSERT EVENT
+		 */
+		protected function fireInsertEvent(result:SQLResult):void{
+			
+			var ne:TableEvent = new TableEvent(TableEvent.INSERT);
+			ne.result = result;
+			ne.tableObject = this;
+			dispatchEvent(ne);
+			
+			var ch:TableEvent = new TableEvent(TableEvent.CHANGE_TOTAL);
+			ch.result = result;
+			ch.tableObject = this;
+			dispatchEvent(ch);
+			
+			var evt:TableEvent = new TableEvent(TableEvent.TABLE_CHANGE);
+			evt.result = result;
+			evt.tableObject = this;
+			dispatchEvent(evt);
+			
+			_log.debug("fireInsertEvent : dispatchInsertEvent - " + result.lastInsertRowID);
+		}
+		
+		protected function fireUpdateEvent(result:SQLResult):void{
 			
 			var ne:TableEvent = new TableEvent(TableEvent.UPDATE);
 			ne.result = result;
@@ -319,19 +380,29 @@ package com.coltware.airxlib.db
 		}
 		
 		/**
-		 *  アイテムを削除する
+		 *  DELETE ITEM
 		 */
 		public function deleteItem(item:Object,func:Function = null):void{
+			var stmt:SQLStatement = new SQLStatement();
+			stmt.sqlConnection = this._conn;
 			
-			if(item.hasOwnProperty(this._pkey)){
-				var stmt:SQLStatement = new SQLStatement();
-				stmt.sqlConnection = this._conn;
+			var wheres:Array = new Array();
+			for(var i:int = 0;  i < this._pkey.length; i++){
+				var key:String = _pkey[i];
+				_log.debug("delete pkey is :" + key);
+				if(item.hasOwnProperty(key)){
+					wheres.push(key + " = :" + key);
+					stmt.parameters[":" + key] = item[key];
+				}
+			}
+			
+			if(wheres.length > 0){
 				
-				var where:String = this._pkey + " = :" + this._pkey;
-				var sql:String = "DELETE FROM " + this.tableName + " WHERE " + where;
+				var sql:String = "DELETE FROM " + this.tableName + " WHERE " + wheres.join(" AND ");
 				
 				stmt.text = sql;
-				stmt.parameters[":" + this._pkey] = item[this._pkey];
+				lastSql = sql;
+				_log.debug("DELETE ITEM[" + sql + "]");
 				
 				var _deleteItemFunc:Function = function():void{
 					var result:SQLResult = stmt.getResult();
@@ -363,13 +434,6 @@ package com.coltware.airxlib.db
 			stmt.execute();
 		}
 		
-		/**
-		 *   プライマリキーを指定し削除する
-		 */ 
-		public function execDeleteByPKey(pkey:Number):void{
-			var where:String = this._pkey + " = " + pkey;
-			this.execDelete(where);
-		}
 		
 		public function fireDeleteEvent(result:SQLResult):void{
 			
