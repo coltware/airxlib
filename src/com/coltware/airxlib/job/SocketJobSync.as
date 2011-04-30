@@ -128,6 +128,7 @@ package com.coltware.airxlib.job
 				if(_sock.connected){
 					log.info("disconnecting socket ...DONE");
 					_isConnected = false;
+					_serviceReady = false;
 					this.dispatchEvent(new Event(Event.CLOSE));
 					try{
 						if(_sock.connected)
@@ -152,7 +153,7 @@ package com.coltware.airxlib.job
 			//  サーバから接続を閉じられたときには、何も処理をしない
 			_sock.addEventListener(SecurityErrorEvent.SECURITY_ERROR,nullHandler);
 			_sock.addEventListener(IOErrorEvent.IO_ERROR,nullHandler);
-			
+			this._serviceReady = false;
 			this.internalSocketClosing();
 			
 			this.dispatchEvent(new Event(Event.CLOSE));
