@@ -13,8 +13,7 @@ package com.coltware.airxlib.log
 	import flash.events.*;
 	import flash.net.*;
 	import flash.utils.*;
-	
-	import mx.charts.renderers.DiamondItemRenderer;
+
 	import mx.core.mx_internal;
 	import mx.logging.*;
 	import mx.logging.targets.LineFormattedTarget;
