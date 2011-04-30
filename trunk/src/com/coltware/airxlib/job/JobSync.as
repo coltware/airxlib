@@ -74,7 +74,7 @@ package com.coltware.airxlib.job
 		/**
 		 * サービスが利用できる状態か？
 		 */
-		private var _serviceReady:Boolean = false;
+		protected var _serviceReady:Boolean = false;
 		
 		/**
 		 * 現在実施中のジョブ
