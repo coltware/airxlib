@@ -28,15 +28,20 @@ package com.coltware.airxlib.db.collection
 	{
 		private static const log:ILogger = Log.getLogger("com.coltware.airxlib.db.collection.TableCollectionView");
 		
+		public static const MODE_FETCH:String = "FETCH";
+		public static const MODE_ALL:String = "ALL";
+		
+		
 		private var _tableList:TableList;
 		
-		public function TableCollectionView(tableNameOrTable:Object)
+		
+		public function TableCollectionView(tableNameOrTable:Object , mode:String = "FETCH")
 		{
 			super(null);
 			this.sort = new Sort();
 			this.sort.fields = [];
 			
-			this._tableList = new TableList();
+			this._tableList = new TableList(mode);
 			this._tableList.sort = this.sort;
 			
 			this._tableList.addEventListener(FlexEvent.INIT_COMPLETE,_handle_list_complete);
@@ -62,6 +67,7 @@ package com.coltware.airxlib.db.collection
 		public function start():void{
 			if(!this._tableList.isInitilizing()){
 				this._tableList.start();
+				
 			}
 		}
 		

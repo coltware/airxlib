@@ -69,13 +69,16 @@ package com.coltware.airxlib.db.collection
 		
 		private var _initilizing:Boolean = false;
 		
+		private var _mode:String = "FETCH";
+		
 		/**
 		 *  item object properties
 		 */
 		private var _properties:Array;
 		
-		public function TableList()
+		public function TableList(mode:String = "FETCH")
 		{
+			this._mode = mode;
 			_cache_idx = new Array();
 			_cache_dict = new Dictionary();
 		}
@@ -96,7 +99,12 @@ package com.coltware.airxlib.db.collection
 		public function start():void{
 			//  TOTAL件数を計算
 			this._initilizing = true;
-			this._getInternalLength();
+			if(this._mode == "ALL"){
+				this._getInternalAll();
+			}
+			else{
+				this._getInternalLength();
+			}
 		}
 		
 		public function isInitilizing():Boolean{
@@ -136,7 +144,15 @@ package com.coltware.airxlib.db.collection
 		{
 			if(this._length < 0){
 				log.debug("invoked getInternalLength()");
-				this._getInternalLength();
+				if(this._initilizing){
+					return 0;
+				}
+				if(this._mode == "ALL"){
+					this._getInternalAll();
+				}
+				else{
+					this._getInternalLength();
+				}
 				return 0;
 			}
 			else{
@@ -175,7 +191,7 @@ package com.coltware.airxlib.db.collection
 		public function getItemAt(index:int, prefetch:int=0):Object
 		{
 			var ci:int = _cache_idx.lastIndexOf(index);
-			if(ci > 0){
+			if(ci > -1){
 				var obj:Object = _cache_dict[index];
 				return obj;
 			}		
@@ -202,6 +218,7 @@ package com.coltware.airxlib.db.collection
 			var where:String = this._get_where(stmt);
 			
 			stmt.text = "SELECT * FROM " + this._tableName + where + " " + order + " LIMIT 1 OFFSET " + index;
+			
 			this._lastSql = stmt.text;
 			
 			var proxy:ObjectProxy;
@@ -221,6 +238,7 @@ package com.coltware.airxlib.db.collection
 			_cache_idx.push(index);
 			
 			var resultFunc:Function = function(evt:SQLEvent):void{
+				log.debug("getItemAt(" + index + "): " + stmt.text);
 				var result:SQLResult = stmt.getResult();
 				var ret:Object = result.data[0];
 				
@@ -301,6 +319,11 @@ package com.coltware.airxlib.db.collection
 							stmt.parameters[i] = _queryParameter.args[i];
 						}
 					}
+					else if(ObjectUtil.isDynamicObject(_queryParameter.args)){
+						for(var key:String in _queryParameter.args){
+							stmt.parameters[":" + key] = _queryParameter.args[key];
+						}
+					}
 					else{
 						stmt.parameters[0] = _queryParameter.args;
 					}
@@ -324,11 +347,13 @@ package com.coltware.airxlib.db.collection
 		 * 内部のlengthを計算するための処理
 		 */
 		private function _getInternalLength():void{
-			if(!_lengthStmt){
+			if(_lengthStmt){
+				_lengthStmt.itemClass = null;
+			}
+			else{
 				_lengthStmt = new SQLStatement();
 				_lengthStmt.sqlConnection = this._conn;
 				_lengthStmt.addEventListener(SQLEvent.RESULT,_handler_get_total);
-				
 				_lengthStmt.addEventListener(SQLErrorEvent.ERROR,_handler_query_error);
 			}
 			var sql:String = "SELECT count(*) as count FROM " + this._tableName;
@@ -348,17 +373,45 @@ package com.coltware.airxlib.db.collection
 			_lengthStmt.execute();
 		}
 		
+		private function _getInternalAll():void{
+			if(!_lengthStmt){
+				_lengthStmt = new SQLStatement();
+				_lengthStmt.itemClass = this._itemClass;
+				_lengthStmt.sqlConnection = this._conn;
+				_lengthStmt.addEventListener(SQLEvent.RESULT,_handler_get_all);
+				_lengthStmt.addEventListener(SQLErrorEvent.ERROR,_handler_query_error);
+			}
+			var sql:String = "SELECT * FROM " + this._tableName;
+			var where:String = "";
+			
+			
+			if(_queryParameter){
+				where = this._get_where(_lengthStmt);
+				_lengthStmt.text = sql + where;
+			}
+			else{
+				_lengthStmt.text = sql;
+			}
+			
+			log.debug("_getInternalLength() : get length:" + _lengthStmt.text);
+			_lastSql = _lengthStmt.text;
+			_lengthStmt.execute();
+		}
+		
 		private function _handler_get_total(evt:SQLEvent):void{
+			log.debug("handler_get_total...");
 			var result:SQLResult = _lengthStmt.getResult();
 			if(result && result.data){
 				
 				if(this._length < 0 ){
 					log.debug("list init complete...");
+					this._length = result.data[0]["count"];
 					var flexEvent:FlexEvent = new FlexEvent(FlexEvent.INIT_COMPLETE);
 					dispatchEvent(flexEvent);
 				}
-				
-				this._length = result.data[0]["count"];
+				else{
+					this._length = result.data[0]["count"];
+				}
 				
 				log.debug("_handler_get_total ... length is [" + this._length + "]");
 				
@@ -370,8 +423,40 @@ package com.coltware.airxlib.db.collection
 			}
 		}
 		
+		private function _handler_get_all(evt:SQLEvent):void{
+			var result:SQLResult = _lengthStmt.getResult();
+			if(result && result.data){
+				
+				var length:int = result.data.length;
+				
+				for(var i:int = 0; i<length; i++){
+					_cache_dict[i] = result.data[i];
+					_cache_idx.push(i);
+				}
+				
+				
+				
+				if(this._length < 0){
+					this._length = result.data.length;
+					var flexEvent:FlexEvent = new FlexEvent(FlexEvent.INIT_COMPLETE);
+					dispatchEvent(flexEvent);
+				}
+				else{
+					this._length = result.data.length;
+				}
+				
+				var collectEvent:CollectionEvent = new CollectionEvent(CollectionEvent.COLLECTION_CHANGE);
+				collectEvent.kind = CollectionEventKind.RESET;
+				dispatchEvent(collectEvent);
+				
+				this._initilizing = false;
+				
+			}
+		}
+		
 		private function _handler_query_error(event:SQLErrorEvent):void{
 			log.warn("SQL Error:" + event.text + "[" + this._lastSql  + "]");
+			log.warn(event.error.getStackTrace());
 		}
 		
 	}
