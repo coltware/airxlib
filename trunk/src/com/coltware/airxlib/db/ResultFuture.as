@@ -39,7 +39,13 @@ package com.coltware.airxlib.db
 			this.result(func);
 		}
 		
+		public function resultRow(func:Function):void{
+			this._type = "row";
+			this.result(func);
+		}
+		
 		private function resultHandler(event:SQLEvent):void{
+			log.debug("resultHandler...");
 			var result:SQLResult = this._stmt.getResult();
 			if(this._type == "one"){
 				if(result.data.length == 1){
@@ -54,8 +60,22 @@ package com.coltware.airxlib.db
 					}
 				}
 			}
+			else if(this._type == "row"){
+				if(result.data){
+					if(result.data.length == 1){
+						this._resultFunc(result.data[0]);
+					}
+					else{
+						this._resultFunc(null);
+					}
+				}
+				else{
+					this._resultFunc(null);
+				}
+				
+			}
 			else{
-				this._resultFunc(this._stmt.getResult());
+				this._resultFunc(result);
 			}
 		}
 		private function errorHandler(event:SQLErrorEvent):void{
