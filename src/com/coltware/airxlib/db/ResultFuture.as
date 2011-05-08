@@ -19,11 +19,28 @@ package com.coltware.airxlib.db
 		
 		private var _type:String;
 		
+		private var _args:Array;
+		
 		public function ResultFuture(stmt:SQLStatement)
 		{
 			this._stmt = stmt;
 			this._stmt.addEventListener(SQLEvent.RESULT,resultHandler);
 			this._stmt.addEventListener(SQLErrorEvent.ERROR,errorHandler);
+		}
+		
+		public function setArgs(...args):void{
+			this._args = args;
+		}
+		
+		public function getArgs():Array{
+			return this._args;
+		}
+		
+		public function getArgOne():Object{
+			if(this._args.length > 0 ){
+				return this._args[0];
+			}
+			return null;
 		}
 		
 		
@@ -32,6 +49,7 @@ package com.coltware.airxlib.db
 			this._resultFunc = func;
 			log.debug("execute..." + this._stmt.text);
 			this._stmt.execute();
+			
 		}
 		
 		public function resultOne(func:Function):void{
@@ -45,7 +63,7 @@ package com.coltware.airxlib.db
 		}
 		
 		private function resultHandler(event:SQLEvent):void{
-			log.debug("resultHandler...");
+			
 			var result:SQLResult = this._stmt.getResult();
 			if(this._type == "one"){
 				if(result.data.length == 1){
@@ -62,7 +80,8 @@ package com.coltware.airxlib.db
 			}
 			else if(this._type == "row"){
 				if(result.data){
-					if(result.data.length == 1){
+					if(result.data.length > 0){
+						//log.debug("data..." + result.data);
 						this._resultFunc(result.data[0]);
 					}
 					else{
