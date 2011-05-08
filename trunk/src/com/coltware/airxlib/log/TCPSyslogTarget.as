@@ -142,7 +142,16 @@ package com.coltware.airxlib.log
         	if(includeCategory){
         		cat2 = ILogger(event.target).category + fieldSeparator;
         	}
-        	internalLog("<" + pri + ">" + ds + " " + cat + ":" + cat2 + event.message);
+			var lines:Array = event.message.split("\n");
+			if(lines.length == 1){
+        		internalLog("<" + pri + ">" + ds + " " + cat + ":" + cat2 + event.message);
+			}
+			else{
+				for(var i:int = 0; i<lines.length; i++){
+					var num:String = "[" + (i+1) + "/" + lines.length + "] ";
+					internalLog("<" + pri + ">" + ds + " " + cat + ":" + cat2 + num + lines[i]);
+				}
+			}
     	}
     	
     	/*
