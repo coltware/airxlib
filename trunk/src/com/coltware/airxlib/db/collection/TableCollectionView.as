@@ -24,13 +24,14 @@ package com.coltware.airxlib.db.collection
 	import mx.logging.ILogger;
 	import mx.logging.Log;
 	
+	[Event(name="initComplete", type="mx.events.FlexEvent")]
+	
 	public class TableCollectionView extends ListCollectionView
 	{
 		private static const log:ILogger = Log.getLogger("com.coltware.airxlib.db.collection.TableCollectionView");
 		
 		public static const MODE_FETCH:String = "FETCH";
 		public static const MODE_ALL:String = "ALL";
-		
 		
 		private var _tableList:TableList;
 		
@@ -64,10 +65,9 @@ package com.coltware.airxlib.db.collection
 			this.dispatchEvent(event);
 		}
 		
-		public function start():void{
+		public function start(func:Function = null):void{
 			if(!this._tableList.isInitilizing()){
-				this._tableList.start();
-				
+				this._tableList.start(func);
 			}
 		}
 		

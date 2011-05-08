@@ -20,6 +20,7 @@ package com.coltware.airxlib.db
 	import mx.collections.ArrayCollection;
 	import mx.logging.ILogger;
 	import mx.logging.Log;
+	import mx.utils.ObjectUtil;
 	
 	[Event(name="tableInsert",type="com.coltware.airxlib.db.TableEvent")]
 	[Event(name="tableUpdate",type="com.coltware.airxlib.db.TableEvent")]
@@ -186,14 +187,12 @@ package com.coltware.airxlib.db
 						//flds.push(fld);
 					}
 					else{
-						if(raw[fld]){
-							var k:String = ":" + fld;
-							data.push(k);
-							flds.push(fld);
+						var k:String = ":" + fld;
+						data.push(k);
+						flds.push(fld);
 						
-							stmt.parameters[k] = raw[fld];
-							_log.debug(k + " => " + raw[fld]);
-						}
+						stmt.parameters[k] = raw[fld];
+						_log.debug(k + " => " + raw[fld]);
 					}
 				}
 				else{
@@ -221,7 +220,7 @@ package com.coltware.airxlib.db
 				}
 				stmt.removeEventListener(SQLErrorEvent.ERROR,insertErrorFunc);
 			}
-			stmt.addEventListener(SQLErrorEvent.ERROR,errorFunc);
+			stmt.addEventListener(SQLErrorEvent.ERROR,insertErrorFunc);
 			stmt.addEventListener(SQLEvent.RESULT,insertFunc);
 			stmt.execute();
 		}
@@ -278,6 +277,39 @@ package com.coltware.airxlib.db
 				stmt.removeEventListener(SQLEvent.RESULT,updateFunc);
 			};
 			stmt.addEventListener(SQLEvent.RESULT,updateFunc);
+			stmt.execute();
+		}
+		
+		public function updateWhere(data:Object,query:QueryParameter,triggerEvent:Boolean = true):void{
+			var stmt:SQLStatement = new SQLStatement();
+			stmt.sqlConnection = _conn;
+			
+			var whereStr:String = "";
+			var set:Array = new Array();
+			if(query){
+				whereStr = this._get_where(stmt,query);
+			}
+			
+			for(var key:String in data){
+				stmt.parameters[":_u_" + key] = data[key];
+				set.push(key + " = :_u_" + key);
+			}
+			
+			var sql:String = "UPDATE " + this.tableName + "\n" +
+				" SET " + set.join(",\n") + whereStr;
+			
+			if($__debug__)_log.debug("sql: " + sql);
+			
+			lastSql = sql;
+			stmt.text = sql;
+			if(triggerEvent){
+				var updateFunc:Function = function():void{
+					var result:SQLResult = stmt.getResult();
+					fireUpdateEvent(result);
+					stmt.removeEventListener(SQLEvent.RESULT,updateFunc);
+				};
+				stmt.addEventListener(SQLEvent.RESULT,updateFunc);
+			}
 			stmt.execute();
 		}
 		
@@ -361,7 +393,7 @@ package com.coltware.airxlib.db
 			evt.tableObject = this;
 			dispatchEvent(evt);
 			
-			_log.debug("fireInsertEvent : dispatchInsertEvent - " + result.lastInsertRowID);
+			//_log.debug("fireInsertEvent : dispatchInsertEvent - " + result.lastInsertRowID);
 		}
 		
 		protected function fireUpdateEvent(result:SQLResult):void{
@@ -455,6 +487,27 @@ package com.coltware.airxlib.db
 			if(debug)_log.debug("dispatchUpdateEvent - " + result.rowsAffected);
 		}
 		
+		
+		public function getRowFuture(query:QueryParameter):IResultFuture{
+			var stmt:SQLStatement = new SQLStatement();
+			stmt.sqlConnection = _conn;
+			
+			var sql:String = "SELECT * FROM " + this.tableName + this._get_where(stmt,query);
+			
+			if(query.order){
+				sql += " ORDER BY " + query.order;
+			}
+			this.lastSql = sql;
+			stmt.text = sql;
+			
+			if(this.itemClass){
+				stmt.itemClass = this.itemClass;
+			}
+			
+			var future:IResultFuture = new ResultFuture(stmt);
+			return future;
+		}
+		
 		/**
 		 *  1レコードだけ取得する。
 		 * 
@@ -509,6 +562,39 @@ package com.coltware.airxlib.db
 			return stmt;
 		}
 		
+		/**
+		 *  1レコードだけ取得する。
+		 * 
+		 *  resultFunc で登録した関数の中で、 handleGetRowを呼べば簡単にオブジェクトが取得できます。
+		 */
+		public function getListFuture(query:QueryParameter):IResultFuture{
+			var stmt:SQLStatement = new SQLStatement();
+			stmt.sqlConnection = _conn;
+			
+			var sql:String = "SELECT * FROM " + this.tableName + this._get_where(stmt,query);
+			
+			if(query.order){
+				sql += " ORDER BY " + query.order;
+			}
+			
+			if(query.limit > -1 ){
+				sql = sql + " LIMIT " + query.limit;
+			}
+			if(query.offset > -1){
+				sql = sql + " OFFSET " + query.offset;
+			}
+			
+			this.lastSql = sql;
+			stmt.text = sql;
+			
+			if(this.itemClass){
+				stmt.itemClass = this.itemClass;
+			}
+			
+			var future:IResultFuture = new ResultFuture(stmt);
+			return future;
+		}
+		
 		
 		/**
 		 *  getRow メソッド結果を簡単に取得するメソッド。
@@ -528,6 +614,8 @@ package com.coltware.airxlib.db
 				return null;
 			}
 		}
+		
+		
 		
 		
 		/**
@@ -641,6 +729,7 @@ package com.coltware.airxlib.db
 		/**
 		 * すべての結果を取得する
 		 */
+		/*
 		public function getAll(itemClass:Class = null,func:Function = null):SQLStatement{
 			var stmt:SQLStatement = createQueryStatement(null,itemClass);
 			var allFunc:Function = function():void{
@@ -654,7 +743,8 @@ package com.coltware.airxlib.db
 			stmt.execute();
 			return stmt;
 		}
-		
+		*/
+		/*
 		public function getList(opts:Object,itemClass:Class = null,func:Function = null):void{
 			var stmt:SQLStatement = this.createQueryStatement(opts,itemClass);
 			
@@ -666,9 +756,9 @@ package com.coltware.airxlib.db
 			stmt.addEventListener(SQLEvent.RESULT,selectFunc);
 			stmt.execute();	
 		}
+		*/
 		
-		
-		
+		/*
 		public function handleGetMap(event:SQLEvent,key:String):Object{
 			var stmt:SQLStatement = event.target as SQLStatement;
 			var result:SQLResult = stmt.getResult();
@@ -687,11 +777,12 @@ package com.coltware.airxlib.db
 			}
 			return null;
 		}
-		
+		*/
 		/**
 		*  登録に成功した場合に、最後に登録されたIDを取得する
 		*
 		*/
+		/*
 		public function handleLastInsertId(event:SQLEvent):Number{
 			var stmt:SQLStatement = event.target as SQLStatement;
 			var result:SQLResult = stmt.getResult();
@@ -700,11 +791,12 @@ package com.coltware.airxlib.db
 			}
 			return result.lastInsertRowID;
 		}
-		
+		*/
 		/**
 		 * シーケンス番号を取得する
 		 * 
 		 */
+		/*
 		public function nextval(seqName:String):Number{
 			var stmt:SQLStatement = new SQLStatement();
 			stmt.sqlConnection = this._conn;
@@ -718,7 +810,7 @@ package com.coltware.airxlib.db
 			}
 			return -1;
 		}
-		
+		*/
 		
 		private function getFieldType(type:String):int{
 			type = type.toUpperCase();
@@ -743,6 +835,34 @@ package com.coltware.airxlib.db
 			_log.debug("*****  DEBUG TRACE ******");
 			_log.debug(" table name : " + this.tableName );
 			
+		}
+		
+		private function _get_where(stmt:SQLStatement,query:QueryParameter):String{
+			var where_array:Array = new Array();
+			if(query){
+				if(query.systemWhere){
+					where_array.push("(" + query.systemWhere + ")");
+				}
+				if(query.where){
+					where_array.push(query.where);
+				}
+				
+				if(query.args){
+					if(ObjectUtil.isDynamicObject(query.args)){
+						for(var key:String in query.args){
+							stmt.parameters[":" + key] = query.args[key];
+						}
+					}
+					else{
+						stmt.parameters[0] = query.args;
+					}
+				}
+			}
+			
+			if(where_array.length > 0){
+				return " WHERE " + where_array.join(" AND ");
+			}
+			return "";
 		}
 	}
 }

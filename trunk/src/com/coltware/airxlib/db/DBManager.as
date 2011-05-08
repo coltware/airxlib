@@ -81,6 +81,13 @@ package com.coltware.airxlib.db
 			}
 			return null;
         }
+		
+		public static function setConnection(conn:SQLConnection, name:String = "_default_db_"):void{
+			if(_instance[name]){
+				var dbman:DBManager = _instance[name] as DBManager;
+				dbman._connection = conn;
+			}
+		}
 
         /**
         *   

@@ -51,6 +51,8 @@ package com.coltware.airxlib.db.collection
 		private var _length:int = -1;
 		private var _sort:Sort;
 		
+		private var _initCacheSize:int = 10;
+		
 		private var _pageSize:int = 5;
 		
 		private var _index_uid_prefix:String = "_internal_position";
@@ -70,6 +72,8 @@ package com.coltware.airxlib.db.collection
 		private var _initilizing:Boolean = false;
 		
 		private var _mode:String = "FETCH";
+		
+		private var _start_func:Function;
 		
 		/**
 		 *  item object properties
@@ -96,8 +100,10 @@ package com.coltware.airxlib.db.collection
 		
 		//  ITableList functions
 		
-		public function start():void{
+		public function start(func:Function = null):void{
 			//  TOTAL件数を計算
+			this._start_func = func;
+			
 			this._initilizing = true;
 			if(this._mode == "ALL"){
 				this._getInternalAll();
@@ -406,6 +412,15 @@ package com.coltware.airxlib.db.collection
 				if(this._length < 0 ){
 					log.debug("list init complete...");
 					this._length = result.data[0]["count"];
+					
+					//  最初なので、内部キャッシュサイズを取得する
+					if(this._initCacheSize > 0 ){
+						
+					}
+					if(this._start_func is Function){
+						this._start_func.call();
+					}
+					
 					var flexEvent:FlexEvent = new FlexEvent(FlexEvent.INIT_COMPLETE);
 					dispatchEvent(flexEvent);
 				}
@@ -440,6 +455,11 @@ package com.coltware.airxlib.db.collection
 					this._length = result.data.length;
 					var flexEvent:FlexEvent = new FlexEvent(FlexEvent.INIT_COMPLETE);
 					dispatchEvent(flexEvent);
+					
+					if(this._start_func is Function){
+						this._start_func.call();
+					}
+					
 				}
 				else{
 					this._length = result.data.length;

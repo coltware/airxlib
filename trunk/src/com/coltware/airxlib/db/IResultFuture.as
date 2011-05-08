@@ -7,5 +7,11 @@ package com.coltware.airxlib.db
 		function resultOne(func:Function):void;
 		
 		function resultRow(func:Function):void;
+		
+		function setArgs(...args):void;
+			
+		function getArgs():Array;
+		
+		function getArgOne():Object;
 	}
 }
