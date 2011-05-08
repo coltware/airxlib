@@ -35,6 +35,9 @@ package com.coltware.airxlib.job
 		
 		protected var _idleTimeout:int = 5000;
 		
+		[Event(name="ioError",type="flash.events.IOErrorEvent")]
+		[Event (name="securityError",type="flash.events.SecurityErrorEvent")]
+		
 		[Event(name="jobStackEmpty",type="com.coltware.airxlib.job.JobEvent")]
 		[Event(name="jobIdleTimeout",type="com.coltware.airxlib.job.JobEvent")]
 		[Event(name="jobInitFailure",type="com.coltware.airxlib.job.JobEvent")]
