@@ -567,23 +567,26 @@ package com.coltware.airxlib.db
 		 * 
 		 *  resultFunc で登録した関数の中で、 handleGetRowを呼べば簡単にオブジェクトが取得できます。
 		 */
-		public function getListFuture(query:QueryParameter):IResultFuture{
+		public function getListFuture(query:QueryParameter = null):IResultFuture{
 			var stmt:SQLStatement = new SQLStatement();
 			stmt.sqlConnection = _conn;
 			
-			var sql:String = "SELECT * FROM " + this.tableName + this._get_where(stmt,query);
+			var sql:String = "SELECT * FROM " + this.tableName; 
 			
-			if(query.order){
-				sql += " ORDER BY " + query.order;
-			}
+			if(query){
+				sql += this._get_where(stmt,query);
 			
-			if(query.limit > -1 ){
-				sql = sql + " LIMIT " + query.limit;
-			}
-			if(query.offset > -1){
-				sql = sql + " OFFSET " + query.offset;
-			}
+				if(query.order){
+					sql += " ORDER BY " + query.order;
+				}
 			
+				if(query.limit > -1 ){
+					sql = sql + " LIMIT " + query.limit;
+				}
+				if(query.offset > -1){
+					sql = sql + " OFFSET " + query.offset;
+				}
+			}
 			this.lastSql = sql;
 			stmt.text = sql;
 			
