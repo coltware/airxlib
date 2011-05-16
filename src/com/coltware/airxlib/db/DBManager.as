@@ -15,6 +15,7 @@ package com.coltware.airxlib.db
 	import flash.events.SQLErrorEvent;
 	import flash.events.SQLEvent;
 	import flash.filesystem.File;
+	import flash.net.SharedObject;
 	import flash.utils.getDefinitionByName;
 	
 	import mx.logging.ILogger;
@@ -31,6 +32,8 @@ package com.coltware.airxlib.db
     	
     	private static var _instance:Object = new Object();
     	private static var _internal:Boolean = false;
+		
+		private var _sharedObj:SharedObject;
     	
     	/**
     	 *  XMLのファイルを管理する
@@ -71,6 +74,7 @@ package com.coltware.airxlib.db
 			_internal = true;
 			var dbman:DBManager = new DBManager();
 			dbman._connection = conn;
+			dbman._sharedObj = SharedObject.getLocal("dbman_" + name);
 			_instance[name] = dbman;
 			return dbman;
 		}
@@ -184,6 +188,13 @@ package com.coltware.airxlib.db
         		_log.debug("dbName is " + dbName);
         		table.sqlConnection = this._connection;
         	}
+			if(_sharedObj.data.hasOwnProperty(id)){
+				//  DBがすでに作成されている
+				_log.debug("table exists ... " + id + " => " + _sharedObj.data[id]);
+				
+				// alterがほしい
+				createIfNot = false;
+			}
         	
         	if(createIfNot == true){
         		//  テーブルが作成されていなければ、作成処理をする
@@ -193,9 +204,16 @@ package com.coltware.airxlib.db
         			factory.xml = xml;
         			factory.connection = this._connection;
         			factory.create(_handleCreateTable,null,true);
+					var version:String = xml.@version;
+					if(version){
+						_sharedObj.data[id] = version;
+					}
+					else{
+						_sharedObj.data[id] = "1";
+					}
+					_sharedObj.flush();
         		}
         	}
-        	
         	
         	table.xml = xml;
         	var itemClass:String = xml.@itemClass;
