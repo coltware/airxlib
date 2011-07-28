@@ -16,6 +16,7 @@ package com.coltware.airxlib.db
 	import flash.events.EventDispatcher;
 	import flash.events.SQLErrorEvent;
 	import flash.events.SQLEvent;
+	import flash.utils.getQualifiedClassName;
 	
 	import mx.collections.ArrayCollection;
 	import mx.logging.ILogger;
@@ -35,13 +36,17 @@ package com.coltware.airxlib.db
 		public static var debug:Boolean = false;
 		
 		protected var _conn:SQLConnection;
-		protected var tableName:String;
+		public var tableName:String;
 		private var fields:Object;
 		private var _xml:XML;
+		
+		private var _auto_increment_key:String;
 		private var _pkey:Array;
 		protected var _defaultItemClass:Class = null;
 		
 		public var lastSql:String = "";
+		
+		private var _transaction:Boolean = false;
 		
 		
 		/*
@@ -125,9 +130,10 @@ package com.coltware.airxlib.db
 				var name:String = child.@name;
 				var type:String = child.@type;
 				if(child.@auto_increment == "true"){
+					_auto_increment_key = name;
 					fields[name] = FIELD_AUTO;
 					_pkey.push(name);
-					_log.debug("pkey is " + _pkey);
+					_log.debug("pkey(auto increment) is " + _pkey);
 				}
 				else{
 					if(child.@primary == "true"){
@@ -139,6 +145,23 @@ package com.coltware.airxlib.db
 				
 			}
 			this.afterCreate();
+		}
+		
+		public function begin():void{
+			this._conn.begin();
+			this._transaction = true;
+		}
+		
+		public function commit():void{
+			
+			if(this._transaction){
+				this._conn.commit();
+			}
+			this._transaction = false;
+			
+			var evt:TableEvent = new TableEvent(TableEvent.TABLE_CHANGE);
+			evt.tableObject = this;
+			dispatchEvent(evt);
 		}
 		
 		protected function afterCreate():void{
@@ -153,6 +176,8 @@ package com.coltware.airxlib.db
 		 *  登録処理
 		 */ 
 		public function insertItem(raw:Object,func:Function = null,errorFunc:Function = null):void{
+			
+			_log.debug("insert item: " + getQualifiedClassName(raw));
 			
 			var stmt:SQLStatement = new SQLStatement();
 			stmt.sqlConnection = _conn;
@@ -181,7 +206,7 @@ package com.coltware.airxlib.db
 				else{
 				
 				if(fields[fld] > 0 ){
-					if(raw[fld] == null){
+					if(!raw.hasOwnProperty(fld) || raw[fld] == null){
 						// 登録時には NULL　は入れずに DBのdefaultに任せる
 						//data.push("NULL");
 						//flds.push(fld);
@@ -207,18 +232,32 @@ package com.coltware.airxlib.db
 			
 			var insertFunc:Function = function():void{
 				var result:SQLResult = stmt.getResult();
+				
+				if(_auto_increment_key){
+					var num:Number = result.lastInsertRowID;
+					raw[_auto_increment_key] = num;
+					
+					_log.debug("last insert id : " + num);
+					_log.debug("last insert id2 : " + result.lastInsertRowID);
+				}
+				
 				if(func != null){
 					func(result);
 				}
-				fireInsertEvent(result);
+				if(!_transaction){
+					fireInsertEvent(result,raw);
+				}
 				stmt.removeEventListener(SQLEvent.RESULT,insertFunc);
+				stmt.removeEventListener(SQLErrorEvent.ERROR,insertErrorFunc);
 			};
 			
 			var insertErrorFunc:Function = function(errEvt:SQLErrorEvent):void{
+				_log.info("DB INSERT ERROR: " + errEvt.text);
 				if(errorFunc != null){
 					errorFunc(errEvt);
 				}
 				stmt.removeEventListener(SQLErrorEvent.ERROR,insertErrorFunc);
+				stmt.removeEventListener(SQLEvent.RESULT,insertFunc);
 			}
 			stmt.addEventListener(SQLErrorEvent.ERROR,insertErrorFunc);
 			stmt.addEventListener(SQLEvent.RESULT,insertFunc);
@@ -249,7 +288,7 @@ package com.coltware.airxlib.db
 				}
 				else{
 					if(item.hasOwnProperty(fieldName)){
-						if(item[fieldName]){
+						if(item[fieldName] != null){
 							set.push(fieldName + " =:" + fieldName);
 							stmt.parameters[":" + fieldName] = item[fieldName];
 						}
@@ -273,7 +312,9 @@ package com.coltware.airxlib.db
 				if(func != null){
 					func(result);
 				}
-				fireUpdateEvent(result);
+				if(!_transaction){
+					fireUpdateEvent(result,item);
+				}
 				stmt.removeEventListener(SQLEvent.RESULT,updateFunc);
 			};
 			stmt.addEventListener(SQLEvent.RESULT,updateFunc);
@@ -305,7 +346,9 @@ package com.coltware.airxlib.db
 			if(triggerEvent){
 				var updateFunc:Function = function():void{
 					var result:SQLResult = stmt.getResult();
-					fireUpdateEvent(result);
+					if(_transaction){
+						fireUpdateEvent(result);
+					}
 					stmt.removeEventListener(SQLEvent.RESULT,updateFunc);
 				};
 				stmt.addEventListener(SQLEvent.RESULT,updateFunc);
@@ -316,6 +359,7 @@ package com.coltware.airxlib.db
 		/**
 		 *  更新処理
 		 */
+		/*
 		public function updateSync(raw:Object,where:String,setNull:Boolean = false ):SQLStatement{
 			var stmt:SQLStatement = new SQLStatement();
 			stmt.sqlConnection = _conn;
@@ -372,35 +416,54 @@ package com.coltware.airxlib.db
 			stmt.execute();
 			return stmt;
 		}
+		*/
 		
 		/**
 		 *  INSERT EVENT
 		 */
-		protected function fireInsertEvent(result:SQLResult):void{
+		protected function fireInsertEvent(result:SQLResult,item:Object = null):void{
 			
-			var ne:TableEvent = new TableEvent(TableEvent.INSERT);
-			ne.result = result;
-			ne.tableObject = this;
-			dispatchEvent(ne);
+			_log.debug("fireInserEvent..." + this.tableName);
 			
-			var ch:TableEvent = new TableEvent(TableEvent.CHANGE_TOTAL);
-			ch.result = result;
-			ch.tableObject = this;
-			dispatchEvent(ch);
 			
-			var evt:TableEvent = new TableEvent(TableEvent.TABLE_CHANGE);
-			evt.result = result;
-			evt.tableObject = this;
-			dispatchEvent(evt);
+			if(this.hasEventListener(TableEvent.INSERT)){
+			
+				var ne:TableEvent = new TableEvent(TableEvent.INSERT);
+				ne.result = result;
+				ne.tableObject = this;
+				ne.item = item;
+				dispatchEvent(ne);
+			
+			}
+			
+			if(this.hasEventListener(TableEvent.CHANGE_TOTAL)){
+			
+				var ch:TableEvent = new TableEvent(TableEvent.CHANGE_TOTAL);
+				ch.result = result;
+				ch.tableObject = this;
+				ch.item = item;
+				dispatchEvent(ch);
+			}
+				
+			if(this.hasEventListener(TableEvent.TABLE_CHANGE)){
+			
+				var evt:TableEvent = new TableEvent(TableEvent.TABLE_CHANGE);
+				evt.result = result;
+				evt.tableObject = this;
+				evt.item = item;
+				dispatchEvent(evt);
+			
+			}
 			
 			//_log.debug("fireInsertEvent : dispatchInsertEvent - " + result.lastInsertRowID);
 		}
 		
-		protected function fireUpdateEvent(result:SQLResult):void{
+		protected function fireUpdateEvent(result:SQLResult,item:Object = null):void{
 			
 			var ne:TableEvent = new TableEvent(TableEvent.UPDATE);
 			ne.result = result;
 			ne.tableObject = this;
+			ne.item = item;
 			dispatchEvent(ne);
 			
 			var chg:TableEvent = new TableEvent(TableEvent.TABLE_CHANGE);
@@ -452,7 +515,39 @@ package com.coltware.airxlib.db
 			}
 		}
 		
+		/**
+		 * 
+		 * 削除処理
+		 * 
+		 */
+		public function deleteWhere(query:QueryParameter,func:Function = null):void{
+			var stmt:SQLStatement = new SQLStatement();
+			stmt.sqlConnection = this._conn;
+			
+			var where:String = this._get_where(stmt,query);
+			
+			var sql:String = "DELETE FROM " + this.tableName + where;
+			
+			stmt.text = sql;
+			
+			this.lastSql = sql;
+			var _deleteWhereFunc:Function = function():void{
+				var result:SQLResult = stmt.getResult();
+				if(func != null){
+					func(result);
+				}
+				fireDeleteEvent(result);
+				stmt.removeEventListener(SQLEvent.RESULT,_deleteWhereFunc);
+			};
+			stmt.addEventListener(SQLEvent.RESULT,_deleteWhereFunc);
+			stmt.execute();
+			
+			
+		}
 		
+		
+		
+		/*
 		public function execDelete(where:String):void{
 			if(where == null || where.length < 1 ){
 				throw new IllegalOperationError("where is NULL");
@@ -465,6 +560,7 @@ package com.coltware.airxlib.db
 			lastSql = sql;
 			stmt.execute();
 		}
+		*/
 		
 		
 		public function fireDeleteEvent(result:SQLResult):void{
@@ -652,6 +748,22 @@ package com.coltware.airxlib.db
 			}
 			stmt.text = sql;
 			var future:ResultFuture = new ResultFuture(stmt);
+			return future;
+		}
+		
+		public function getTotalFuture(query:QueryParameter = null):IResultFuture{
+			var stmt:SQLStatement = new SQLStatement();
+			stmt.sqlConnection = _conn;
+			
+			var sql:String = "SELECT count(*) FROM " + this.tableName; 
+			
+			if(query){
+				sql += this._get_where(stmt,query);
+			}
+			this.lastSql = sql;
+			stmt.text = sql;
+			
+			var future:IResultFuture = new ResultFuture(stmt);
 			return future;
 		}
 		

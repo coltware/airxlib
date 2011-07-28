@@ -28,6 +28,7 @@ package com.coltware.airxlib.db
 		
 		public var tableObject:Table;
 		public var result:SQLResult;
+		public var item:Object;
 		
 		private var _rowSize:Number;
 		

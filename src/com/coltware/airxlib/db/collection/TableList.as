@@ -149,7 +149,7 @@ package com.coltware.airxlib.db.collection
 		public function get length():int
 		{
 			if(this._length < 0){
-				log.debug("invoked getInternalLength()");
+				log.debug("invoked getInternalLength() " + this._length);
 				if(this._initilizing){
 					return 0;
 				}
@@ -211,12 +211,14 @@ package com.coltware.airxlib.db.collection
 				var len:int = this._sort.fields.length;
 				var _order_list:Array = new Array();
 				for(var i:int = 0; i < len; i++){
-					var sf:SortField = this._sort.fields[i];
-					if(sf.descending){
-						_order_list.push(sf.name + " DESC");
+					
+					var sort:Object = this._sort.fields[i];
+					
+					if(sort['descending']){
+						_order_list.push(sort['name'] + " DESC");
 					}
 					else{
-						_order_list.push(sf.name + " ASC");
+						_order_list.push(sort['name'] + " ASC");
 					}
 				}
 				order = " ORDER BY " + _order_list.join(" , ");
@@ -244,8 +246,11 @@ package com.coltware.airxlib.db.collection
 			_cache_idx.push(index);
 			
 			var resultFunc:Function = function(evt:SQLEvent):void{
-				log.debug("getItemAt(" + index + "): " + stmt.text);
+				//log.debug("getItemAt(" + index + "): " + stmt.text);
 				var result:SQLResult = stmt.getResult();
+				if(!result.data){
+					return;
+				}
 				var ret:Object = result.data[0];
 				
 				var key:String;
@@ -349,6 +354,13 @@ package com.coltware.airxlib.db.collection
 			this._getInternalLength();
 		}
 		
+		public function dispose():void{
+			this._conn = null;
+			this._lengthStmt = null;
+			this._lengthStmt = null;
+			this._start_func = null;
+		}
+		
 		/**
 		 * 内部のlengthを計算するための処理
 		 */
@@ -376,7 +388,9 @@ package com.coltware.airxlib.db.collection
 			
 			log.debug("_getInternalLength() : get length:" + _lengthStmt.text);
 			_lastSql = _lengthStmt.text;
-			_lengthStmt.execute();
+			if(!_lengthStmt.executing){
+				_lengthStmt.execute();
+			}
 		}
 		
 		private function _getInternalAll():void{
@@ -410,15 +424,20 @@ package com.coltware.airxlib.db.collection
 			if(result && result.data){
 				
 				if(this._length < 0 ){
-					log.debug("list init complete...");
+					
 					this._length = result.data[0]["count"];
+					
+					log.debug("list init complete... " + this._length);
 					
 					//  最初なので、内部キャッシュサイズを取得する
 					if(this._initCacheSize > 0 ){
 						
 					}
 					if(this._start_func is Function){
+						log.debug("invoked start function");
 						this._start_func.call();
+						
+						this._start_func = null;
 					}
 					
 					var flexEvent:FlexEvent = new FlexEvent(FlexEvent.INIT_COMPLETE);
@@ -458,6 +477,8 @@ package com.coltware.airxlib.db.collection
 					
 					if(this._start_func is Function){
 						this._start_func.call();
+						
+						this._start_func = null;
 					}
 					
 				}
