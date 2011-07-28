@@ -30,8 +30,12 @@ package com.coltware.airxlib.schedule {
 	
 		private static var _instance:ASCronTab = new ASCronTab();
 		
-		public function ASCronTab() {
+		public function ASCronTab(delay:int = -1) {
 			_tasks = new ArrayCollection();
+			
+			if(delay < 0 ){
+				_delay = 1000 * 30;
+			}
 			_timer = new Timer(_delay,0);
 			_timer.addEventListener(TimerEvent.TIMER ,_timerHandler);
 		}
