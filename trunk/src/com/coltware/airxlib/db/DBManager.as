@@ -18,6 +18,8 @@ package com.coltware.airxlib.db
 	import flash.net.SharedObject;
 	import flash.utils.getDefinitionByName;
 	
+	import mx.collections.ArrayCollection;
+	import mx.events.CollectionEvent;
 	import mx.logging.ILogger;
 	import mx.logging.Log;
 	import mx.rpc.events.FaultEvent;
@@ -33,6 +35,8 @@ package com.coltware.airxlib.db
     	private static var _instance:Object = new Object();
     	private static var _internal:Boolean = false;
 		
+		private static var _executor:ArrayCollection;
+		
 		private var _sharedObj:SharedObject;
     	
     	/**
@@ -46,6 +50,8 @@ package com.coltware.airxlib.db
     	private var _connection:SQLConnection;
     	
     	private var _urlToId:Object;
+		
+		private var _force:Boolean = false;
     	
     	/**
     	 *  IDとクラス名を管理する
@@ -61,13 +67,20 @@ package com.coltware.airxlib.db
         	 	_urlToId = new Object();
         	 	_tableMap = new Object();
         	 	_clzMap = new Object();
+				
+				_executor = new ArrayCollection();
+				
         	 }
         	 else{
         	 	throw new IllegalOperationError("please call getInstance()");
         	 }
         }
 		
-		public static function newInstance(conn:SQLConnection, name:String = "_default_db_"):DBManager{
+		public static function newInstance(conn:SQLConnection, name:String = "_default_db_", force:Boolean = false):DBManager{
+			if(name == null){
+				name = "_default_db_"
+			}
+			
 			if(_instance[name]){
 				throw new Error("duplicate invoked");
 			}
@@ -76,6 +89,8 @@ package com.coltware.airxlib.db
 			dbman._connection = conn;
 			dbman._sharedObj = SharedObject.getLocal("dbman_" + name);
 			_instance[name] = dbman;
+			
+			dbman._force = force;
 			return dbman;
 		}
         
@@ -132,6 +147,36 @@ package com.coltware.airxlib.db
         private function _handleXMLError(e:FaultEvent):void{
         	_log.fatal("XML error" + e.message);
         }
+		
+		public function addExecStatement(stmt:SQLStatement):void{
+			stmt.addEventListener(SQLEvent.RESULT,_hook_sql_result);
+			_executor.addItem(stmt);
+		}
+		
+		private function _hook_sql_result(event:SQLEvent):void{
+			
+			if(_executor.length > 0){
+				var stmt:SQLStatement = _executor.removeItemAt(0) as SQLStatement;
+			}
+			else{
+				_executor.addEventListener(CollectionEvent.COLLECTION_CHANGE,_stmt_exec);
+			}
+			
+		}
+		
+		private function _stmt_exec(event:CollectionEvent):void{
+			
+			_executor.removeEventListener(CollectionEvent.COLLECTION_CHANGE,_stmt_exec);
+			
+			if(_executor.length > 0 ){
+				
+			}
+			else{
+				_executor.addEventListener(CollectionEvent.COLLECTION_CHANGE,_stmt_exec);
+			}
+			
+		}
+		
         
         /**
         *   テーブルオブジェクトを作っておく
@@ -188,7 +233,7 @@ package com.coltware.airxlib.db
         		_log.debug("dbName is " + dbName);
         		table.sqlConnection = this._connection;
         	}
-			if(_sharedObj.data.hasOwnProperty(id)){
+			if(this._force == false && _sharedObj.data.hasOwnProperty(id)){
 				//  DBがすでに作成されている
 				_log.debug("table exists ... " + id + " => " + _sharedObj.data[id]);
 				
@@ -200,17 +245,24 @@ package com.coltware.airxlib.db
         		//  テーブルが作成されていなければ、作成処理をする
         		_log.info("create if not exists table .... invoked");
         		if(this._connection){
+					var oldVersion:String = _sharedObj.data[id] as String;
+					var version:String = xml.@version;
+					if(!version){
+						version = "1";
+					}
+					_log.info("old version [" + oldVersion + "] : new version [" + version + "]");
+					
+					
         			var factory:TableFactory = new TableFactory();
         			factory.xml = xml;
         			factory.connection = this._connection;
+					
+					if(oldVersion != version){
+						factory.drop();
+					}
+					
         			factory.create(_handleCreateTable,null,true);
-					var version:String = xml.@version;
-					if(version){
-						_sharedObj.data[id] = version;
-					}
-					else{
-						_sharedObj.data[id] = "1";
-					}
+					_sharedObj.data[id] = version;
 					_sharedObj.flush();
         		}
         	}

@@ -85,6 +85,7 @@ package com.coltware.airxlib.db
 			//stmt.addEventListener(SQLEvent.RESULT,handleCreate);
 			if(resultFunc != null){
 				stmt.addEventListener(SQLEvent.RESULT,resultFunc);
+				stmt.addEventListener(SQLEvent.RESULT,create_table_index);
 			}
 			if(errorFunc != null){
 				stmt.addEventListener(SQLErrorEvent.ERROR,errorFunc);
@@ -187,6 +188,7 @@ package com.coltware.airxlib.db
 				this.createSeq(tableName,c.@name);
 			}
 			
+			
 			if($__debug__) _log.debug("sql : " + sql);
 			lastSql = sql;
 			return sql;
@@ -198,6 +200,36 @@ package com.coltware.airxlib.db
 			var stmt:SQLStatement = new SQLStatement();
 			stmt.text = sql;
 			stmt.sqlConnection = this._conn;
+			stmt.execute();
+		}
+		
+		private function create_table_index(event:* = null):void{
+			var tableName:String = this._xml.@name;
+			
+			//	インデックスがある場合
+			for each(var idx:XML in this._xml.index){
+				this.createIndex(tableName,idx);
+			}
+		}
+		
+		private function createIndex(tableName:String,index:XML):void{
+			var n:String = tableName + "_" + index.@name;
+			var keys:Array = new Array();
+			for each(var f:XML in index.field){
+				if(f.@name){
+					keys.push(f.@name);
+				}
+			}
+			var field_str:String = "";
+			if(keys.length > 0){
+				field_str = keys.join(",");
+			}
+			var sql:String = "CREATE INDEX IF NOT EXISTS " + n + " on " + tableName + "(" + field_str + ")"; 
+			_log.debug("create index[" + sql + "]");
+			
+			var stmt:SQLStatement = new SQLStatement();
+			stmt.sqlConnection = this._conn;
+			stmt.text = sql;
 			stmt.execute();
 		}
 	}

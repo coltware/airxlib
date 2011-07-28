@@ -35,6 +35,8 @@ package com.coltware.airxlib.db.collection
 		
 		private var _tableList:TableList;
 		
+		private var _table:Table;
+		
 		
 		public function TableCollectionView(tableNameOrTable:Object , mode:String = "FETCH")
 		{
@@ -43,25 +45,32 @@ package com.coltware.airxlib.db.collection
 			this.sort.fields = [];
 			
 			this._tableList = new TableList(mode);
-			this._tableList.sort = this.sort;
+			
+			this._tableList.sort = this.sort as Sort;
 			
 			this._tableList.addEventListener(FlexEvent.INIT_COMPLETE,_handle_list_complete);
+			this._tableList.addEventListener(CollectionEvent.COLLECTION_CHANGE,_handle_list_collection_change);
 			
 			if(tableNameOrTable is Table){
-				var t:Table = tableNameOrTable as Table;
-				this._tableList.tableName = t.getTableName();
-				this._tableList.sqlConnection = t.sqlConnection;
-				this._tableList.itemClass = t.itemClass;
-				log.debug("table object add trigger..." + t);
-				t.addEventListener(TableEvent.TABLE_CHANGE, hook_table_chage_total);
+				_table = tableNameOrTable as Table;
+				this._tableList.tableName = _table.getTableName();
+				this._tableList.sqlConnection = _table.sqlConnection;
+				this._tableList.itemClass = _table.itemClass;
+				log.debug("table object add trigger..." + _table);
+				_table.addEventListener(TableEvent.TABLE_CHANGE, hook_table_chage_total);
 			}
 			else{
 				this._tableList.tableName = tableNameOrTable as String;
 			}
 		}
 		
+		
 		private function _handle_list_complete(event:FlexEvent):void{
 			this.list = this._tableList;
+			this.dispatchEvent(event);
+		}
+		
+		private function _handle_list_collection_change(event:CollectionEvent):void{
 			this.dispatchEvent(event);
 		}
 		
@@ -69,6 +78,10 @@ package com.coltware.airxlib.db.collection
 			if(!this._tableList.isInitilizing()){
 				this._tableList.start(func);
 			}
+		}
+		
+		public function get tableList():TableList{
+			return this._tableList;
 		}
 		
 		/**
@@ -105,6 +118,14 @@ package com.coltware.airxlib.db.collection
 		override public function getItemAt(index:int, prefetch:int=0):Object{
 			
 			var ret:Object =  list.getItemAt(index,prefetch);
+			
+			if(index != 0 && index == _tableList.length - 1){
+				var evt:TableCollectionEvent = new TableCollectionEvent(TableCollectionEvent.TABLE_COLLECTION_FETCH_END);
+				evt.setIndex(index);
+				this.dispatchEvent(evt);
+			}
+			
+			
 			return ret;
 		}
 		
@@ -116,8 +137,21 @@ package com.coltware.airxlib.db.collection
 		}
 		
 		private function hook_table_chage_total(evt:TableEvent):void{
-			log.debug("table chang total ...");
+			log.debug("table change total ...");
 			this.refresh();
+		}
+		
+		public function dispose():void{
+			log.debug("dispose...");
+			if(this._table){
+				_table.removeEventListener(TableEvent.TABLE_CHANGE, hook_table_chage_total);
+			}
+			
+			if(this._tableList){
+				this._tableList.dispose();
+			}
+			
+			this._tableList = null;
 		}
 	}
 }
