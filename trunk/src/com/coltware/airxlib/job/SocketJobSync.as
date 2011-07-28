@@ -55,11 +55,18 @@ package com.coltware.airxlib.job
 		public function set host(h:String):void{
 			this._host = h;
 		}
+		public function get host():String{
+			return this._host;
+		}
+		
 		/**
 		 *  接続するポート番号を指定します。
 		 */
 		public function set port(p:int):void{
 			this._port = p;
+		}
+		public function get port():int{
+			return this._port;
 		}
 		
 		/**
@@ -149,7 +156,7 @@ package com.coltware.airxlib.job
 		 */
 		protected function socketClosing(e:Event):void{
 			_isConnected = false;
-			log.debug("socket closed from server " + this.isServiceReady);
+			log.debug("socket closed from server [" + this.host + "]");
 			_sock.removeEventListener(Event.CLOSE,socketClosing);
 			_sock.removeEventListener(ProgressEvent.SOCKET_DATA,handleData);
 			_sock.removeEventListener(IOErrorEvent.IO_ERROR,ioerrorHandler);
