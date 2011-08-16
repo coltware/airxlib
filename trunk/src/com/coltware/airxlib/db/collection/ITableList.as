@@ -13,6 +13,7 @@ package com.coltware.airxlib.db.collection
 	import flash.data.SQLConnection;
 	
 	import mx.collections.IList;
+	import mx.collections.ISort;
 	import mx.collections.Sort;
 
 	public interface ITableList extends IList
@@ -40,6 +41,6 @@ package com.coltware.airxlib.db.collection
 		/**
 		 *  ソートを設定する
 		 */
-		function set sort(sort:Sort):void;		
+		function set sort(sort:ISort):void;		
 	}
 }

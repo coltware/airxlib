@@ -16,6 +16,7 @@ package com.coltware.airxlib.db.collection
 	import flash.utils.getQualifiedClassName;
 	
 	import mx.collections.IList;
+	import mx.collections.ISort;
 	import mx.collections.ListCollectionView;
 	import mx.collections.Sort;
 	import mx.events.CollectionEvent;
@@ -127,6 +128,13 @@ package com.coltware.airxlib.db.collection
 			
 			
 			return ret;
+		}
+		
+		public override function set sort(s:ISort):void{
+			super.sort = s;
+			if(_tableList){
+				_tableList.sort = s;
+			}
 		}
 		
 		override public function refresh():Boolean{
