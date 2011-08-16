@@ -20,6 +20,7 @@ package com.coltware.airxlib.db.collection
 	import flash.utils.Dictionary;
 	
 	import mx.collections.IList;
+	import mx.collections.ISort;
 	import mx.collections.Sort;
 	import mx.collections.SortField;
 	import mx.core.ClassFactory;
@@ -49,7 +50,7 @@ package com.coltware.airxlib.db.collection
 		private var _tableName:String;
 		private var _itemClass:Class;
 		private var _length:int = -1;
-		private var _sort:Sort;
+		private var _sort:ISort;
 		
 		private var _initCacheSize:int = 10;
 		
@@ -142,7 +143,7 @@ package com.coltware.airxlib.db.collection
 			return this._queryParameter;
 		}
 		
-		public function set sort(s:Sort):void{
+		public function set sort(s:ISort):void{
 			this._sort = s;
 		}
 		
@@ -403,7 +404,24 @@ package com.coltware.airxlib.db.collection
 			}
 			var sql:String = "SELECT * FROM " + this._tableName;
 			var where:String = "";
-			
+
+			var order:String = "";
+			if(this._sort && this._sort.fields && this._sort.fields.length > 0 ){
+				var len:int = this._sort.fields.length;
+				var _order_list:Array = new Array();
+				for(var i:int = 0; i < len; i++){
+					
+					var sort:Object = this._sort.fields[i];
+					
+					if(sort['descending']){
+						_order_list.push(sort['name'] + " DESC");
+					}
+					else{
+						_order_list.push(sort['name'] + " ASC");
+					}
+				}
+				order = " ORDER BY " + _order_list.join(" , ");
+			}
 			
 			if(_queryParameter){
 				where = this._get_where(_lengthStmt);
@@ -412,6 +430,8 @@ package com.coltware.airxlib.db.collection
 			else{
 				_lengthStmt.text = sql;
 			}
+			
+			_lengthStmt.text += order;
 			
 			log.debug("_getInternalLength() : get length:" + _lengthStmt.text);
 			_lastSql = _lengthStmt.text;

@@ -39,6 +39,7 @@ package com.coltware.airxlib.db.collection
 		}
 		
 		public override function set sort(s:ISort):void{
+			super.sort = s;
 			_queryList.sort = s;
 		}
 		
