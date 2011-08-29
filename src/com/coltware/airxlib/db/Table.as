@@ -217,7 +217,7 @@ package com.coltware.airxlib.db
 						flds.push(fld);
 						
 						stmt.parameters[k] = raw[fld];
-						_log.debug(k + " => " + raw[fld]);
+						//_log.debug(k + " => " + raw[fld]);
 					}
 				}
 				else{
