@@ -78,7 +78,7 @@ package com.coltware.airxlib.db
 		
 		public static function newInstance(conn:SQLConnection, name:String = "_default_db_", force:Boolean = false):DBManager{
 			if(name == null){
-				name = "_default_db_"
+				name = "_default_db_";
 			}
 			
 			if(_instance[name]){
@@ -88,6 +88,7 @@ package com.coltware.airxlib.db
 			var dbman:DBManager = new DBManager();
 			dbman._connection = conn;
 			dbman._sharedObj = SharedObject.getLocal("dbman_" + name);
+			
 			_instance[name] = dbman;
 			
 			dbman._force = force;
@@ -223,22 +224,37 @@ package com.coltware.airxlib.db
         			clz = _clzMap[id] as Class;
         		}
         		else{
-        			className = "com.coltware.commons.db.Table";
+        			className = "com.coltware.airxlib.db.Table";
         			clz = getDefinitionByName(className) as Class;
         		}
         	}
         	
         	var table:Table = new clz();
         	if(dbName != null){
-        		_log.debug("dbName is " + dbName);
+        		_log.debug("dbName is [" + dbName + "]");
         		table.sqlConnection = this._connection;
         	}
+			_log.debug("force mode is [" +  this._force + "]" + _sharedObj.data.hasOwnProperty(id));
+			
 			if(this._force == false && _sharedObj.data.hasOwnProperty(id)){
 				//  DBがすでに作成されている
 				_log.debug("table exists ... " + id + " => " + _sharedObj.data[id]);
 				
-				// alterがほしい
 				createIfNot = false;
+				
+				//	テーブルがあるのでalterが必要かチェックする
+				if(this._connection){
+					var _oldVersion:Number = Number(_sharedObj.data[id]);
+					var _newVersion:Number = Number(xml.@version);
+					if(_oldVersion < _newVersion){
+						_log.debug("need version up [" + _oldVersion + " > " + _newVersion + "]");
+						var factory:TableFactory = new TableFactory();
+						factory.xml = xml;
+						factory.connection = this._connection;
+						factory.alter(_oldVersion,_newVersion);
+					}
+				}
+				
 			}
         	
         	if(createIfNot == true){
@@ -250,21 +266,33 @@ package com.coltware.airxlib.db
 					if(!version){
 						version = "1";
 					}
-					_log.info("old version [" + oldVersion + "] : new version [" + version + "]");
+					_log.info("[" + xml.@name + "] - old version [" + oldVersion + "] : new version [" + version + "]");
 					
 					
         			var factory:TableFactory = new TableFactory();
         			factory.xml = xml;
         			factory.connection = this._connection;
 					
+					var fromVer:Number = Number(oldVersion);
+					var toVer:Number   = Number(version);
+					
 					if(oldVersion != version){
-						factory.drop();
+						_log.debug("version upgrade  ....");
+						//	必要なフィールドを追加する
+						factory.alter(fromVer,toVer);
+						//factory.drop();
+						
 					}
+					_log.debug("creating....");
 					
         			factory.create(_handleCreateTable,null,true);
 					_sharedObj.data[id] = version;
 					_sharedObj.flush();
         		}
+				else{
+					//	
+					throw new Error("SQLConnection is NULL");
+				}
         	}
         	
         	table.xml = xml;
