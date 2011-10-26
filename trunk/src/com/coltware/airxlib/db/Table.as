@@ -12,7 +12,6 @@ package com.coltware.airxlib.db
 	import flash.data.SQLResult;
 	import flash.data.SQLStatement;
 	import flash.errors.IllegalOperationError;
-	import flash.errors.SQLError;
 	import flash.events.EventDispatcher;
 	import flash.events.SQLErrorEvent;
 	import flash.events.SQLEvent;
@@ -609,6 +608,7 @@ package com.coltware.airxlib.db
 		 * 
 		 *  resultFunc で登録した関数の中で、 handleGetRowを呼べば簡単にオブジェクトが取得できます。
 		 */
+		/*
 		public function getRow(where:Object,resultFunc:Function,errorFunc:Function = null,clz:Class = null):SQLStatement{
 			var stmt:SQLStatement = new SQLStatement();
 			stmt.sqlConnection = _conn;
@@ -657,6 +657,7 @@ package com.coltware.airxlib.db
 			stmt.execute();
 			return stmt;
 		}
+		*/
 		
 		/**
 		 *  1レコードだけ取得する。
@@ -696,10 +697,13 @@ package com.coltware.airxlib.db
 		
 		
 		/**
-		 *  getRow メソッド結果を簡単に取得するメソッド。
+		 * 
+		 * getRow メソッド結果を簡単に取得するメソッド。
 		 * SQLEvent.RESULTのイベント処理の中で呼ぶ。
+		 *
 		 * 
 		 */
+		/*
 		public function getRowResult(result:SQLResult):Object{
 			if(result != null && result.data != null){
 				if(result.data.length > 0 ){
@@ -713,6 +717,7 @@ package com.coltware.airxlib.db
 				return null;
 			}
 		}
+		*/
 		
 		
 		
@@ -969,7 +974,16 @@ package com.coltware.airxlib.db
 						}
 					}
 					else{
-						stmt.parameters[0] = query.args;
+						if(query.args is Array){
+							var arr:Array = query.args as Array;
+							for(var s:int = 0; s < arr.length; s++){
+								stmt.parameters[s] = arr[s];
+							}
+							
+						}
+						else{
+							stmt.parameters[0] = query.args;
+						}
 					}
 				}
 			}

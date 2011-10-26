@@ -8,9 +8,12 @@
  */
 package com.coltware.airxlib.db
 {
+	import flash.data.SQLColumnSchema;
 	import flash.data.SQLConnection;
 	import flash.data.SQLResult;
+	import flash.data.SQLSchemaResult;
 	import flash.data.SQLStatement;
+	import flash.data.SQLTableSchema;
 	import flash.errors.SQLError;
 	import flash.events.SQLErrorEvent;
 	import flash.events.SQLEvent;
@@ -68,6 +71,85 @@ package com.coltware.airxlib.db
 			return stmt;
 		}
 		
+		public function alter(fromVersion:Number,toVersion:Number):void{
+			_log.debug("alter table...[" + fromVersion + "] -> [" + toVersion + "]");
+			if(fromVersion < toVersion){
+				
+				this._conn.loadSchema(SQLTableSchema,this._xml.@name);
+				
+				var loadSchema:Function = function(event:SQLEvent):void{
+					var cols:Array = new Array();
+					var result:SQLSchemaResult = _conn.getSchemaResult();
+					if(result.tables.length == 1){
+						var schema:SQLTableSchema = result.tables[0] as SQLTableSchema;
+						for(var i:int = 0; i<schema.columns.length; i++){
+							var col:SQLColumnSchema = schema.columns[i];
+							cols.push(col.name);
+						}
+					}
+					
+					for each(var field:XML in _xml.field){
+						if(field.@since){
+							var since:Number = Number(field.@since);
+							if(since && since >= toVersion){
+								var fname:String = field.@name;
+								if(cols.indexOf(fname) == -1 ){
+									_log.debug("....since ... " + since + "[" + field.@name + "]");
+									alterField(field);
+								}
+								
+							}
+							
+						}
+					}
+					
+				};
+				
+				this._conn.addEventListener(SQLEvent.SCHEMA,loadSchema);
+				
+				
+				
+				
+			}
+			
+		}
+		
+		private function alterField(field:XML):void{
+			var fieldName:String = field.@name;
+			var type:String = field.@type;
+			type = type.toUpperCase();
+			
+			var sql:String  = "ALTER TABLE " + this._xml.@name + " ADD COLUMN ";
+			
+			
+			switch(type){
+				case "INTEGER":
+				case "INT":
+					sql = sql + fieldName + " INTEGER ";
+					break;
+				case "VARCHAR":
+				case "CAHR":
+					sql = sql + fieldName + " VARCHAR(" + field.@size + ")";
+					break;
+				case "TEXT":
+					sql = sql + fieldName + " TEXT ";
+					break;
+				case "TIMESTAMP":
+				case "DATE":
+					sql = sql + fieldName + " DATE ";
+					break;
+				case "BOOL":
+				case "BOOLEAN":
+					sql = sql + fieldName + " BOOLEAN ";
+					break;
+			}
+			_log.debug("ALTER[" + sql + "]");
+			var stmt:SQLStatement = new SQLStatement();
+			stmt.sqlConnection = this._conn;
+			stmt.text = sql;
+			stmt.execute();
+		}
+		
 		public function handleCreate(e:SQLEvent):void{
 			var stmt:SQLStatement = e.target as SQLStatement;
 			var result:SQLResult = stmt.getResult();
@@ -82,6 +164,9 @@ package com.coltware.airxlib.db
 			var stmt:SQLStatement = new SQLStatement();
 			stmt.sqlConnection = this._conn;
 			stmt.text = createSQL(ifNotExists);
+			
+			_log.debug("create sql:" + stmt.text);
+			
 			//stmt.addEventListener(SQLEvent.RESULT,handleCreate);
 			if(resultFunc != null){
 				stmt.addEventListener(SQLEvent.RESULT,resultFunc);
