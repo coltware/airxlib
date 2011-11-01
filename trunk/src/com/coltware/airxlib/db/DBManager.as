@@ -77,7 +77,7 @@ package com.coltware.airxlib.db
         }
 		
 		public static function newInstance(conn:SQLConnection, name:String = "_default_db_", force:Boolean = false):DBManager{
-			if(name == null){
+			if(name == null || name == ''){
 				name = "_default_db_";
 			}
 			
@@ -237,7 +237,7 @@ package com.coltware.airxlib.db
 			_log.debug("force mode is [" +  this._force + "]" + _sharedObj.data.hasOwnProperty(id));
 			
 			if(this._force == false && _sharedObj.data.hasOwnProperty(id)){
-				//  DBがすでに作成されている
+				//  DBがすでに作成されているはず
 				_log.debug("table exists ... " + id + " => " + _sharedObj.data[id]);
 				
 				createIfNot = false;
@@ -252,6 +252,9 @@ package com.coltware.airxlib.db
 						factory.xml = xml;
 						factory.connection = this._connection;
 						factory.alter(_oldVersion,_newVersion);
+						
+						_sharedObj.data[id] = _newVersion;
+						_sharedObj.flush();
 					}
 				}
 				
