@@ -37,6 +37,16 @@ package com.coltware.airxlib.http
 			return this._clientSocket;
 		}
 		
+		public function getHeader(key:String):String{
+			var k:String = key.toLowerCase();
+			if(this._headers[k]){
+				return this._headers[k];
+			}
+			else{
+				return "";
+			}
+		}
+		
 		public function parseRequest(bytes:ByteArray):void{
 			bytes.position = 0;
 			if(_parseFirst == false){
@@ -63,10 +73,9 @@ package com.coltware.airxlib.http
 			if(ch > 32 ){
 				bytes.position = 0;
 				var line:String = bytes.readUTFBytes(bytes.length);
-				log.debug("line:[" + StringUtil.trim(line) + "]");
-				var p:Array = line.split(/:/,2);
-				var key:String = String(p[0]).toLowerCase();
-				var val:String = p[2];
+				var pos:int = line.indexOf(":");
+				var key:String = line.substr(0,pos).toLowerCase();
+				var val:String = line.substring(pos+1);
 				this._headers[key] = StringUtil.trim(val);
 			}
 			else{

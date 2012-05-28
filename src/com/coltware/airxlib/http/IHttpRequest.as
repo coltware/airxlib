@@ -4,5 +4,7 @@ package com.coltware.airxlib.http
 	{
 		function get url():String;
 		function get method():String;
+		
+		function getHeader(key:String):String;
 	}
 }
