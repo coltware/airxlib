@@ -33,11 +33,15 @@ package com.coltware.airxlib.http
 			socket = new ServerSocket();
 			
 			socket.addEventListener(ServerSocketConnectEvent.CONNECT,_connectHandler);
+			socket.bind(port);
 			
-			socket.bind(10000);
 			log.debug("start httpd : " + socket.localAddress + ":" + socket.localPort );
 			socket.listen();
-			
+		}
+		
+		public function stop():void{
+			socket.close();
+			socket = null;
 		}
 		
 		private function _connectHandler(event:ServerSocketConnectEvent):void{

@@ -36,6 +36,7 @@ package com.coltware.airxlib.http
 			socket.writeUTFBytes("\r\n");
 			
 			for(var key:String in this._headers){
+				log.debug("key :[" + key + "] = " + this._headers[key]);
 				socket.writeUTFBytes(key + ":");
 				socket.writeUTFBytes(this._headers[key]);
 				socket.writeUTFBytes("\r\n");
