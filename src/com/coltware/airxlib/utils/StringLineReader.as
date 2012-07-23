@@ -93,7 +93,12 @@ package com.coltware.airxlib.utils
 				return "";
 			}
 			bytes.position = 0;
-			return bytes.readMultiByte(bytes.bytesAvailable,charset);
+			if(charset == 'utf-8'){
+				return bytes.readUTFBytes(bytes.bytesAvailable);
+			}
+			else{
+				return bytes.readMultiByte(bytes.bytesAvailable,charset);
+			}
 		}
 		
 		public function lastBytearray():ByteArray{
